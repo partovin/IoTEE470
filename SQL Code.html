@@ -1,0 +1,106 @@
+-- ============================================
+-- SENSOR TABLES - COMPLETE WITH REAL DATA
+-- ============================================
+
+USE u950603901_NimaPartovi;
+
+-- Clean up if tables exist
+DROP VIEW IF EXISTS sensor_combined;
+DROP TABLE IF EXISTS sensor_data;
+DROP TABLE IF EXISTS sensor_register;
+
+-- ============================================
+-- TABLE 1: sensor_register
+-- ============================================
+CREATE TABLE sensor_register (
+    node_name VARCHAR(10) NOT NULL,
+    manufacturer VARCHAR(10),
+    longitude DECIMAL(15, 10),
+    latitude DECIMAL(15, 10),
+    PRIMARY KEY (node_name)
+);
+
+-- ============================================
+-- TABLE 2: sensor_data
+-- ============================================
+CREATE TABLE sensor_data (
+    node_name VARCHAR(10) NOT NULL,
+    time_received DATETIME NOT NULL,
+    temperature DECIMAL(6, 2) CHECK (temperature >= -10 AND temperature <= 100),
+    humidity DECIMAL(6, 2) CHECK (humidity >= 0 AND humidity <= 100),
+    PRIMARY KEY (node_name, time_received),
+    FOREIGN KEY (node_name) REFERENCES sensor_register(node_name)
+);
+
+-- ============================================
+-- INSERT DATA - sensor_register
+-- ============================================
+INSERT INTO sensor_register (node_name, manufacturer, longitude, latitude) VALUES
+('node_1', 'Bosch', -118.2437, 34.0522),
+('node_2', 'DHT22', -122.4194, 37.7749),
+('node_3', 'BME280', -73.9352, 40.7306),
+('node_4', 'SHT31', -0.1278, 51.5074),
+('node_5', 'AM2302', 139.6917, 35.6895);
+
+-- ============================================
+-- INSERT DATA - sensor_data
+-- ============================================
+
+-- Node_1: 4 data entries
+INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
+('node_1', '2022-10-01 11:00:00', 22.5, 45.3),
+('node_1', '2022-10-01 11:30:00', 23.1, 46.8),
+('node_1', '2022-10-01 12:00:00', 23.8, 47.2),
+('node_1', '2022-10-01 12:30:00', 24.2, 48.0);
+
+-- Node_2: 4 data entries
+INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
+('node_2', '2022-10-01 11:00:00', 18.3, 62.5),
+('node_2', '2022-10-01 11:30:00', 19.0, 61.2),
+('node_2', '2022-10-01 12:00:00', 19.5, 60.8),
+('node_2', '2022-10-01 12:30:00', 20.1, 59.5);
+
+-- Node_3: 4 data entries
+INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
+('node_3', '2022-10-01 11:00:00', -5.2, 78.9),
+('node_3', '2022-10-01 11:30:00', -4.8, 77.5),
+('node_3', '2022-10-01 12:00:00', -4.3, 76.2),
+('node_3', '2022-10-01 12:30:00', -3.9, 75.8);
+
+-- Node_4: 4 data entries
+INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
+('node_4', '2022-10-01 11:00:00', 15.6, 55.0),
+('node_4', '2022-10-01 11:30:00', 16.2, 54.3),
+('node_4', '2022-10-01 12:00:00', 16.8, 53.7),
+('node_4', '2022-10-01 12:30:00', 17.3, 52.9);
+
+-- Node_5: 4 data entries
+INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
+('node_5', '2022-10-01 11:00:00', 28.9, 40.2),
+('node_5', '2022-10-01 11:30:00', 29.5, 39.8),
+('node_5', '2022-10-01 12:00:00', 30.1, 38.9),
+('node_5', '2022-10-01 12:30:00', 30.7, 38.2);
+
+-- ============================================
+-- CREATE VIEW - sensor_combined
+-- ============================================
+CREATE VIEW sensor_combined AS
+SELECT 
+    sr.node_name,
+    sr.manufacturer,
+    sr.longitude,
+    sr.latitude,
+    sd.time_received,
+    sd.temperature,
+    sd.humidity
+FROM sensor_register sr
+INNER JOIN sensor_data sd
+ON sr.node_name = sd.node_name;
+
+-- ============================================
+-- VERIFICATION QUERIES
+-- ============================================
+SELECT * FROM sensor_register;
+SELECT * FROM sensor_data;
+SELECT * FROM sensor_combined;
+
