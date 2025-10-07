@@ -1,12 +1,10 @@
--- ============================================
--- SENSOR TABLES - COMPLETE WITH REAL DATA
--- ============================================
+-- Sensor Network Database Setup
+-- Database: u950603901_NimaPartovi
 
 USE u950603901_NimaPartovi;
 
--- ============================================
--- TABLE 1: sensor_register
--- ============================================
+-- Create sensor_register table
+-- This holds the basic info for each sensor node
 CREATE TABLE sensor_register (
     node_name VARCHAR(10) NOT NULL,
     manufacturer VARCHAR(10),
@@ -15,9 +13,8 @@ CREATE TABLE sensor_register (
     PRIMARY KEY (node_name)
 );
 
--- ============================================
--- TABLE 2: sensor_data
--- ============================================
+-- Create sensor_data table
+-- Stores temperature and humidity readings from each node
 CREATE TABLE sensor_data (
     node_name VARCHAR(10) NOT NULL,
     time_received DATETIME NOT NULL,
@@ -27,9 +24,8 @@ CREATE TABLE sensor_data (
     FOREIGN KEY (node_name) REFERENCES sensor_register(node_name)
 );
 
--- ============================================
--- INSERT DATA - sensor_register
--- ============================================
+
+-- Insert sensor nodes
 INSERT INTO sensor_register (node_name, manufacturer, longitude, latitude) VALUES
 ('node_1', 'Bosch', -118.2437, 34.0522),
 ('node_2', 'DHT22', -122.4194, 37.7749),
@@ -37,9 +33,9 @@ INSERT INTO sensor_register (node_name, manufacturer, longitude, latitude) VALUE
 ('node_4', 'SHT31', -0.1278, 51.5074),
 ('node_5', 'AM2302', 139.6917, 35.6895);
 
--- ============================================
--- INSERT DATA - sensor_data
--- ============================================
+
+-- Insert sensor readings
+-- Data from October 1st, 2022
 
 -- Node_1: 4 data entries
 INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
@@ -76,9 +72,8 @@ INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
 ('node_5', '2022-10-01 12:00:00', 30.1, 38.9),
 ('node_5', '2022-10-01 12:30:00', 30.7, 38.2);
 
--- ============================================
--- CREATE VIEW - sensor_combined
--- ============================================
+
+-- Create a combined view for easier querying
 CREATE VIEW sensor_combined AS
 SELECT 
     sr.node_name,
@@ -92,10 +87,8 @@ FROM sensor_register sr
 INNER JOIN sensor_data sd
 ON sr.node_name = sd.node_name;
 
--- ============================================
--- VERIFICATION QUERIES
--- ============================================
+
+-- Quick verification
 SELECT * FROM sensor_register;
 SELECT * FROM sensor_data;
 SELECT * FROM sensor_combined;
-
