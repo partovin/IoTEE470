@@ -154,7 +154,7 @@
       <h3> SQL database and homepage</h3>
       <ul>
         <li>GitHub — ESP code: <a href="https://github.com/partovin/IoTEE470" target="_blank" rel="noopener">partovin/IoTEE470</a></li>
-        
+        <li>GitHub — SQL: <a href="https://github.com/partovin/IoTEE470/blob/main/SQL%20Code.html" target="_blank" rel="noopener">SQL</a></li>
     
       <p class="note">Goal: Create this page </p>
     </section>
@@ -167,8 +167,8 @@
       <h3>Building a Simple Dashboard</h3>
       <ul>
         <li>GitHub — ESP code: <a href="https://github.com/partovin/IoTEE470" target="_blank" rel="noopener">partovin/IoTEE470</a></li>
-        <li>GitHub — MySQL scripts: <a href="#" target="_blank" rel="noopener">Add link</a></li>
-        <li>Assignment report (PDF or page): <a href="#" target="_blank" rel="noopener">Add link</a></li>
+        <li>Website: <a href="https://nimapartovi.org" target="_blank" rel="noopener">nimapartovi.org</a></li>
+       
       </ul>
       <p class="note">Goal: create a basic dashboard that reads from your database and presents key sensor metrics.</p>
     </section>
@@ -181,8 +181,8 @@
       <h3>ESP sensor to database</h3>
       <ul>
         <li>GitHub — ESP code: <a href="https://github.com/partovin/IoTEE470" target="_blank" rel="noopener">partovin/IoTEE470</a></li>
-        <li>GitHub — MySQL scripts: <a href="https://github.com/partovin/IoTEE470" target="_blank" rel="noopener">partovin/IoTEE470</a></li>
-        <li>Assignment report (PDF or page): <a href="#" target="_blank" rel="noopener">Add link</a></li>
+        <li>Website: <a href="https://nimapartovi.org" target="_blank" rel="noopener">nimapartovi.org</a></li>
+        
       </ul>
       <p class="note">Goal: create a dashboard that reads data from ESP8266.</p>
     </section>
