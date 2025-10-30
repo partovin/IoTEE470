@@ -1,1 +1,453 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
+// Database configuration for Hostinger
+$servername = "localhost";
+$username = "u950603901_db_NimaPartovi";
+$password = "#Frequency123";
+$dbname = "u950603901_NimaPartovi";
+
+// Create connection
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// ============== DATA INSERTION LOGIC (via GET) ==============
+$insertMessage = "";
+$insertStatus = "";
+$isApiRequest = isset($_GET['nodeId']) && !isset($_GET['view']);
+
+if (isset($_GET['nodeId'])) {
+    $nodeId = $_GET['nodeId'];
+    $timeReceived = isset($_GET['timeReceived']) ? $_GET['timeReceived'] : null;
+    $nodeTemp = isset($_GET['nodeTemp']) ? $_GET['nodeTemp'] : null;
+    $humidity = isset($_GET['humidity']) ? $_GET['humidity'] : null;
+
+    // Check if node is registered
+    $check_node = $conn->prepare("SELECT node_name FROM sensor_register WHERE node_name = ?");
+    $check_node->bind_param("s", $nodeId);
+    $check_node->execute();
+    $result = $check_node->get_result();
+
+    if ($result->num_rows == 0) {
+        $insertStatus = "error";
+        $insertMessage = "Node '$nodeId' is not registered. Please register the node first.";
+    } else {
+        // Data validation constraints
+        $temp_min = -40;
+        $temp_max = 85;
+        $humidity_min = 0;
+        $humidity_max = 100;
+
+        // Validate temperature
+        if ($nodeTemp !== null && (!is_numeric($nodeTemp) || $nodeTemp < $temp_min || $nodeTemp > $temp_max)) {
+            $insertStatus = "error";
+            $insertMessage = "Temperature value ($nodeTemp) is out of acceptable range ($temp_min to $temp_max)";
+        }
+        // Validate humidity
+        elseif ($humidity !== null && (!is_numeric($humidity) || $humidity < $humidity_min || $humidity > $humidity_max)) {
+            $insertStatus = "error";
+            $insertMessage = "Humidity value ($humidity) is out of acceptable range ($humidity_min to $humidity_max)";
+        } else {
+            // If time is not provided, use current timestamp
+            if (!$timeReceived) {
+                $timeReceived = date('Y-m-d H:i:s');
+            } else {
+                $timeReceived = date('Y-m-d H:i:s', strtotime($timeReceived));
+            }
+
+            // Check for duplicate entry
+            $check_duplicate = $conn->prepare("SELECT node_name FROM sensor_data WHERE node_name = ? AND time_received = ? AND temperature = ? AND humidity = ?");
+            $check_duplicate->bind_param("ssdd", $nodeId, $timeReceived, $nodeTemp, $humidity);
+            $check_duplicate->execute();
+            $duplicate_result = $check_duplicate->get_result();
+
+            if ($duplicate_result->num_rows > 0) {
+                $insertStatus = "error";
+                $insertMessage = "Duplicate entry detected. This data already exists in the database.";
+            } else {
+                // Insert data into sensor_data table
+                $insert_stmt = $conn->prepare("INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES (?, ?, ?, ?)");
+                $insert_stmt->bind_param("ssdd", $nodeId, $timeReceived, $nodeTemp, $humidity);
+
+                if ($insert_stmt->execute()) {
+                    $insertStatus = "success";
+                    $insertMessage = "New record created successfully for node '$nodeId'";
+                } else {
+                    $insertStatus = "error";
+                    $insertMessage = "Error: " . $insert_stmt->error;
+                }
+                $insert_stmt->close();
+            }
+            $check_duplicate->close();
+        }
+    }
+    $check_node->close();
+    
+    // Return JSON response for ESP8266
+    if ($isApiRequest) {
+        header('Content-Type: application/json');
+        http_response_code($insertStatus === "success" ? 200 : 400);
+        echo json_encode([
+            'status' => $insertStatus,
+            'message' => $insertMessage
+        ]);
+        $conn->close();
+        exit;
+    }
+}
+
+// ============== FETCH DATA FOR DISPLAY ==============
+
+// Get selected node from dropdown (default to node_1)
+$selectedNode = isset($_GET['node']) ? $_GET['node'] : 'node_1';
+
+// Fetch data from sensor_register table (sorted by Node Name)
+$sql_register = "SELECT * FROM sensor_register ORDER BY node_name ASC";
+$result_register = $conn->query($sql_register);
+
+// Fetch data from sensor_data table (sorted by Node Name) - filtered by selected node
+$sql_data = "SELECT * FROM sensor_data WHERE node_name = ? ORDER BY time_received DESC";
+$stmt_data = $conn->prepare($sql_data);
+$stmt_data->bind_param("s", $selectedNode);
+$stmt_data->execute();
+$result_data = $stmt_data->get_result();
+
+// Calculate averages for selected node
+$sql_avg = "SELECT AVG(temperature) as avg_temp, AVG(humidity) as avg_humidity FROM sensor_data WHERE node_name = ?";
+$stmt_avg = $conn->prepare($sql_avg);
+$stmt_avg->bind_param("s", $selectedNode);
+$stmt_avg->execute();
+$result_avg = $stmt_avg->get_result();
+$averages = $result_avg->fetch_assoc();
+$avg_temp = round($averages['avg_temp'], 2);
+$avg_humidity = round($averages['avg_humidity'], 2);
+
+// ✅ NEW CODE: Count total entries for selected node
+$sql_count = "SELECT COUNT(*) as total_entries FROM sensor_data WHERE node_name = ?";
+$stmt_count = $conn->prepare($sql_count);
+$stmt_count->bind_param("s", $selectedNode);
+$stmt_count->execute();
+$result_count = $stmt_count->get_result();
+$count_row = $result_count->fetch_assoc();
+$total_entries = $count_row['total_entries'];
+
+// Fetch data for chart (selected node only)
+$sql_chart = "SELECT time_received, temperature FROM sensor_data WHERE node_name = ? ORDER BY time_received ASC";
+$stmt_chart = $conn->prepare($sql_chart);
+$stmt_chart->bind_param("s", $selectedNode);
+$stmt_chart->execute();
+$result_chart = $stmt_chart->get_result();
+
+$chart_times = array();
+$chart_temps = array();
+
+if ($result_chart && $result_chart->num_rows > 0) {
+    while($row = $result_chart->fetch_assoc()) {
+        $chart_times[] = $row['time_received'];
+        $chart_temps[] = $row['temperature'];
+    }
+}
+
+// Get list of all nodes for dropdown
+$sql_nodes = "SELECT DISTINCT node_name FROM sensor_register ORDER BY node_name ASC";
+$result_nodes = $conn->query($sql_nodes);
+$available_nodes = array();
+if ($result_nodes && $result_nodes->num_rows > 0) {
+    while($row = $result_nodes->fetch_assoc()) {
+        $available_nodes[] = $row['node_name'];
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSU IoT Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border: 2px solid #333;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        h2 {
+            text-align: center;
+            font-size: 1.5em;
+            margin-bottom: 30px;
+            font-weight: normal;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+        th {
+            background-color: #a4c639;
+            color: #333;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #999;
+        }
+        td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+        tr:nth-child(even) td {
+            background-color: #f9f9f9;
+        }
+        .section-title {
+            text-align: center;
+            font-size: 1.8em;
+            margin: 30px 0 20px 0;
+        }
+        .average-section {
+            background-color: #f0f0f0;
+            padding: 20px;
+            margin: 20px 0;
+            border: 2px solid #a4c639;
+            border-radius: 5px;
+        }
+        .average-section p {
+            font-size: 1.2em;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .message-box {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 40px 0;
+            padding: 20px;
+            background-color: white;
+            border: 2px solid #a4c639;
+            border-radius: 5px;
+        }
+        .node-selector {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 2px solid #a4c639;
+            border-radius: 5px;
+        }
+        .node-selector label {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-right: 15px;
+            color: #333;
+        }
+        .node-selector select {
+            font-size: 1.1em;
+            padding: 10px 20px;
+            border: 2px solid #a4c639;
+            border-radius: 5px;
+            background-color: white;
+            color: #333;
+            cursor: pointer;
+            min-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to</h1>
+        <h1>SSU IoT Lab</h1>
+        
+        <?php if ($insertMessage): ?>
+            <div class="message-box <?php echo $insertStatus; ?>">
+                <?php echo htmlspecialchars($insertMessage); ?>
+            </div>
+        <?php endif; ?>
+        
+        <!-- Node Selector Dropdown -->
+        <div class="node-selector">
+            <label for="nodeSelect">Select Node:</label>
+            <select id="nodeSelect" onchange="changeNode()">
+                <?php foreach ($available_nodes as $node): ?>
+                    <option value="<?php echo htmlspecialchars($node); ?>" 
+                            <?php echo ($node === $selectedNode) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($node); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        
+        <!-- Registered Sensor Nodes Table -->
+        <h2 class="section-title">Registered Sensor Nodes</h2>
+        <table>
+            <thead>
+                <tr>
+                    <?php
+                    if ($result_register && $result_register->num_rows > 0) {
+                        $first_row = $result_register->fetch_assoc();
+                        foreach ($first_row as $column => $value) {
+                            echo "<th>" . ucfirst(str_replace('_', ' ', $column)) . "</th>";
+                        }
+                        $result_register->data_seek(0);
+                    }
+                    ?>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                if ($result_register && $result_register->num_rows > 0) {
+                    while($row = $result_register->fetch_assoc()) {
+                        echo "<tr>";
+                        foreach ($row as $value) {
+                            echo "<td>" . htmlspecialchars($value) . "</td>";
+                        }
+                        echo "</tr>";
+                    }
+                } else {
+                    echo "<tr><td colspan='100%'>No registered sensors found</td></tr>";
+                }
+                ?>
+            </tbody>
+        </table>
+        
+        <!-- Data Received Table -->
+        <h2 class="section-title">Data Received from <?php echo htmlspecialchars($selectedNode); ?></h2>
+        <table>
+            <thead>
+                <tr>
+                    <?php
+                    if ($result_data && $result_data->num_rows > 0) {
+                        $first_row = $result_data->fetch_assoc();
+                        foreach ($first_row as $column => $value) {
+                            echo "<th>" . ucfirst(str_replace('_', ' ', $column)) . "</th>";
+                        }
+                        $result_data->data_seek(0);
+                    }
+                    ?>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                if ($result_data && $result_data->num_rows > 0) {
+                    while($row = $result_data->fetch_assoc()) {
+                        echo "<tr>";
+                        foreach ($row as $value) {
+                            echo "<td>" . htmlspecialchars($value) . "</td>";
+                        }
+                        echo "</tr>";
+                    }
+                } else {
+                    echo "<tr><td colspan='100%'>No data received yet for " . htmlspecialchars($selectedNode) . "</td></tr>";
+                }
+                ?>
+            </tbody>
+        </table>
+
+        <!-- ✅ New: Total Data Entries Counter -->
+        <h2 class="section-title">
+            Total Data Entries for <?php echo htmlspecialchars($selectedNode); ?>:
+            <span style="color:#a4c639;"><?php echo $total_entries; ?></span>
+        </h2>
+        
+        <!-- Average Section -->
+        <div class="average-section">
+            <p><strong>The Average Temperature for <?php echo htmlspecialchars($selectedNode); ?> has been: <?php echo $avg_temp; ?> °F</strong></p>
+            <p><strong>The Average Humidity for <?php echo htmlspecialchars($selectedNode); ?> has been: <?php echo $avg_humidity; ?> %</strong></p>
+        </div>
+        
+        <!-- Chart Section -->
+        <h2 class="section-title">Sensor <?php echo htmlspecialchars($selectedNode); ?> Temperature Plot</h2>
+        <div class="chart-container">
+            <canvas id="temperatureChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        function changeNode() {
+            const selectedNode = document.getElementById('nodeSelect').value;
+            window.location.href = '?node=' + encodeURIComponent(selectedNode);
+        }
+        
+        // Chart data
+        const times = <?php echo json_encode($chart_times); ?>;
+        const temperatures = <?php echo json_encode($chart_temps); ?>;
+        const selectedNode = <?php echo json_encode($selectedNode); ?>;
+
+        const ctx = document.getElementById('temperatureChart').getContext('2d');
+        const temperatureChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: times,
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: temperatures,
+                    borderColor: '#a4c639',
+                    backgroundColor: 'rgba(164, 198, 57, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Sensor ' + selectedNode,
+                        font: { size: 18, weight: 'bold' }
+                    },
+                    legend: { display: true, position: 'top' }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Time', font: { size: 14, weight: 'bold' } },
+                        ticks: { maxRotation: 45, minRotation: 45 }
+                    },
+                    y: {
+                        title: { display: true, text: 'Temperature (°C)', font: { size: 14, weight: 'bold' } },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
+<?php
+$conn->close();
+?>
