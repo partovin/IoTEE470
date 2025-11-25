@@ -19,10 +19,10 @@ const char* publishTopic = "Temp";     // not used now; JSON goes to "TempSensor
 const char* subscribeTopic = "LED";    // LED control
 
 // ---------- Pins ----------
-#define LED_PIN    D5       // external LED to GND (active-HIGH)
+#define LED_PIN    D3       // external LED to GND (active-HIGH)
 #define DHTPIN     D2       // DHT11 data pin
 #define DHTTYPE    DHT11
-#define BUTTON_PIN D3       // button to GND (uses internal pull-up) NOTE: GPIO0 affects boot mode
+#define BUTTON_PIN D5       // button to GND (uses internal pull-up) NOTE: GPIO0 affects boot mode
 
 // ---------- Globals ----------
 WiFiClientSecure espClient;
