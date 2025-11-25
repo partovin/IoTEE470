@@ -5,7 +5,7 @@ import paho.mqtt.client as mqtt
 import mysql.connector
 
 # ---------- MQTT (HiveMQ Cloud) ----------
-MQTT_HOST  = "ccc14b57a7ad419f8a69475c6f57d90f.s1.eu.hivemq.cloud"
+MQTT_HOST  = "8a096660a9f7476aa781422f92500080.s1.eu.hivemq.cloud"
 MQTT_PORT  = 8883
 MQTT_USER  = "npartovi"
 MQTT_PASS  = ""
