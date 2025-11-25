@@ -10,11 +10,11 @@
 #include <DHT.h>  // DHT sensor library
 
 // ---------- WiFi ----------
-const char* ssid = "";
+const char* ssid = "iPhone (64)";
 const char* password = "";
 
 // ---------- MQTT ----------
-const char* mqtt_server = "ccc14b57a7ad419f8a69475c6f57d90f.s1.eu.hivemq.cloud";
+const char* mqtt_server = "8a096660a9f7476aa781422f92500080.s1.eu.hivemq.cloud";
 const char* publishTopic = "Temp";     // not used now; JSON goes to "TempSensor" below
 const char* subscribeTopic = "LED";    // LED control
 
